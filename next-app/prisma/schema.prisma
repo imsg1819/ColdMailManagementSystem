@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(cuid())
+  email          String         @unique
+  password       String?
+  name           String?
+  verified       Boolean        @default(false)
+  role           String         @default("USER") // "ADMIN" or "USER"
+  settings       Settings?
+  oauthTokens    OAuthToken[]
+  recipients     Recipient[]
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Recipient {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String?
+  company             String?
+  targetEmail         String
+  status              String   @default("Pending")
+  lastSentDate        DateTime?
+  location            String?
+  timezone            String   @default("America/New_York")
+  timezoneEstimated   Boolean  @default(true)
+  createdAt           DateTime @default(now())
+}
+
+model Settings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeText         String?
+  resumePath         String?
+  targetRole         String?
+  yearsOfExperience  String?
+  skills             String?
+  linkedinUrl        String?
+  githubUrl          String?
+  portfolioUrl       String?
+  senderName         String?
+  senderEmail        String?
+  senderAppPassword  String?
+}
+
+model OAuthToken {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken    String
+  refreshToken   String
+  expiry         DateTime
+}
