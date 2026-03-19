@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Settings, LogOut, Shield } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, Shield, FileText } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 
 export function Sidebar() {
@@ -13,6 +13,7 @@ export function Sidebar() {
     const navItems = [
         { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { name: "Campaigns", href: "/campaigns", icon: Users },
+        { name: "Resume Builder", href: "/resume-builder", icon: FileText },
         { name: "Settings", href: "/settings", icon: Settings },
     ];
 
@@ -39,18 +40,27 @@ export function Sidebar() {
                     const isActive = pathname === item.href;
                     const Icon = item.icon;
                     const isAdminLink = item.href === "/admin";
+                    const isResumeLink = item.href === "/resume-builder";
+                    const activeClass = isAdminLink
+                        ? "bg-purple-50 text-purple-700 font-medium shadow-sm"
+                        : isResumeLink
+                            ? "bg-violet-50 text-violet-700 font-medium shadow-sm"
+                            : "bg-blue-50 text-blue-700 font-medium shadow-sm";
+                    const activeIconClass = isAdminLink
+                        ? "text-purple-600"
+                        : isResumeLink
+                            ? "text-violet-600"
+                            : "text-blue-600";
                     return (
                         <Link
                             key={item.href}
                             href={item.href}
                             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive
-                                ? isAdminLink
-                                    ? "bg-purple-50 text-purple-700 font-medium shadow-sm"
-                                    : "bg-blue-50 text-blue-700 font-medium shadow-sm"
+                                ? activeClass
                                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
                                 }`}
                         >
-                            <Icon className={`w-5 h-5 ${isActive ? (isAdminLink ? "text-purple-600" : "text-blue-600") : ""}`} />
+                            <Icon className={`w-5 h-5 ${isActive ? activeIconClass : ""}`} />
                             {item.name}
                         </Link>
                     );
