@@ -16,6 +16,7 @@ model User {
   password       String?
   name           String?
   verified       Boolean        @default(false)
+  isBlocked      Boolean        @default(false)
   role           String         @default("USER") // "ADMIN" or "USER"
   settings       Settings?
   oauthTokens    OAuthToken[]
@@ -38,6 +39,7 @@ model Recipient {
   company             String?
   targetEmail         String
   status              String   @default("Pending")
+  sentMessageId       String?
   lastSentDate        DateTime?
   location            String?
   timezone            String   @default("America/New_York")

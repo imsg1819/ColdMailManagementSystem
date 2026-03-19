@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
                 senderName: u.settings?.senderName || null,
                 targetRole: u.settings?.targetRole || null,
                 senderAppPassword: u.settings?.senderAppPassword ? "••••••••" : null,
+                isBlocked: u.isBlocked,
             })),
         });
     } catch (error: any) {
@@ -73,6 +74,8 @@ export async function POST(req: NextRequest) {
                 senderName: user?.settings?.senderName,
                 skills: user?.settings?.skills,
                 yearsOfExperience: user?.settings?.yearsOfExperience,
+                senderAppPassword: user?.settings?.senderAppPassword,
+                isBlocked: user?.isBlocked,
             },
             recipients: recipients.map(r => ({
                 id: r.id,

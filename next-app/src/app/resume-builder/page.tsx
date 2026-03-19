@@ -15,6 +15,8 @@ export default function ResumeBuilderPage() {
     const [copied, setCopied] = useState(false);
     const [loadingSettings, setLoadingSettings] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [compiling, setCompiling] = useState(false);
     const editorRef = useRef<HTMLTextAreaElement>(null);
 
     // Pre-fill resume details from settings if available
@@ -78,6 +80,8 @@ export default function ResumeBuilderPage() {
             }
 
             setLatexOutput(data.latex);
+            // Auto-compile after generation
+            compilePreview(data.latex);
         } catch (err: any) {
             setError(err.message || "Something went wrong. Please try again.");
         } finally {
@@ -121,6 +125,17 @@ export default function ResumeBuilderPage() {
         setIsEditing(false);
     };
 
+    // Compile LaTeX to PDF using latexonline.cc GET endpoint
+    const compilePreview = (code?: string) => {
+        const latex = code || latexOutput;
+        if (!latex.trim()) return;
+        setCompiling(true);
+        const encoded = encodeURIComponent(latex);
+        setPdfUrl(`https://latexonline.cc/compile?text=${encoded}`);
+        // Give the iframe a moment to load
+        setTimeout(() => setCompiling(false), 3000);
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20 p-6">
             {/* Header */}
@@ -139,7 +154,7 @@ export default function ResumeBuilderPage() {
             </div>
 
             {/* Main Grid */}
-            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="max-w-[1800px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* LEFT: Inputs */}
                 <div className="space-y-5">
                     {/* Job Description */}
@@ -233,76 +248,40 @@ export default function ResumeBuilderPage() {
                     )}
                 </div>
 
-                {/* RIGHT: Output */}
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                {/* MIDDLE: Code Editor */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[800px]">
                     <div className="px-5 py-4 bg-gradient-to-r from-gray-800 to-gray-900 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
-                            <Code2 className="w-5 h-5 text-emerald-400" />
-                            <h2 className="font-semibold text-gray-100">LaTeX Output</h2>
-                            {latexOutput && (
-                                <span className="text-xs text-gray-500">
-                                    {isEditing ? "— editing mode" : "— preview mode"}
-                                </span>
-                            )}
-                            {!latexOutput && (
-                                <span className="text-xs text-gray-400">
-                                    — copy and paste into Overleaf
-                                </span>
-                            )}
+                            <Code2 className="w-5 h-5 text-amber-400" />
+                            <h2 className="font-semibold text-gray-100">LaTeX Code</h2>
                         </div>
                         {latexOutput && (
                             <div className="flex gap-2">
-                                {/* Edit / Preview toggle */}
                                 <button
-                                    id="edit-toggle-btn"
-                                    onClick={() => setIsEditing(!isEditing)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isEditing
-                                        ? "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
-                                        : "text-gray-300 bg-gray-700 hover:bg-gray-600"
-                                        }`}
+                                    onClick={() => compilePreview()}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-900 bg-emerald-400 hover:bg-emerald-300 rounded-lg shadow-sm transition-all"
                                 >
-                                    {isEditing ? (
-                                        <>
-                                            <Eye className="w-3.5 h-3.5" />
-                                            Preview
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Pencil className="w-3.5 h-3.5" />
-                                            Edit
-                                        </>
-                                    )}
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    Compile
                                 </button>
                                 <button
-                                    id="copy-btn"
                                     onClick={handleCopy}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all"
                                 >
-                                    {copied ? (
-                                        <>
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                            <span className="text-emerald-400">Copied!</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy className="w-3.5 h-3.5" />
-                                            Copy
-                                        </>
-                                    )}
+                                    {copied ? "Copied!" : "Copy"}
                                 </button>
                                 <button
-                                    id="download-btn"
                                     onClick={handleDownload}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all"
+                                    title="Download .tex file"
                                 >
                                     <Download className="w-3.5 h-3.5" />
-                                    .tex
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    <div className="flex-1 bg-gray-950 overflow-auto min-h-[500px] max-h-[700px]">
+                    <div className="flex-1 bg-gray-950 overflow-hidden relative">
                         {loading ? (
                             <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-400 p-4">
                                 <div className="relative">
@@ -311,69 +290,66 @@ export default function ResumeBuilderPage() {
                                 </div>
                                 <div className="text-center">
                                     <p className="text-sm font-medium text-gray-300">AI is tailoring your resume...</p>
-                                    <p className="text-xs text-gray-500 mt-1">Optimizing for ATS keywords and formatting</p>
+                                    <p className="text-xs text-gray-500 mt-1">Generating ATS-optimized syntax</p>
                                 </div>
                             </div>
                         ) : latexOutput ? (
-                            isEditing ? (
-                                <textarea
-                                    ref={editorRef}
-                                    id="latex-editor"
-                                    value={latexOutput}
-                                    onChange={(e) => setLatexOutput(e.target.value)}
-                                    className="w-full h-full min-h-[500px] max-h-[700px] p-4 text-sm text-amber-200 font-mono bg-gray-950 border-none resize-none focus:outline-none focus:ring-0 leading-relaxed"
-                                    spellCheck={false}
-                                />
-                            ) : (
-                                <pre className="text-sm text-emerald-300 font-mono whitespace-pre-wrap break-words leading-relaxed p-4">
-                                    {latexOutput}
-                                </pre>
-                            )
+                            <textarea
+                                value={latexOutput}
+                                onChange={(e) => setLatexOutput(e.target.value)}
+                                className="w-full h-full p-5 text-sm text-emerald-300 font-mono bg-gray-950 border-none resize-none focus:outline-none focus:ring-0 leading-relaxed custom-scrollbar"
+                                spellCheck={false}
+                            />
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500 p-4">
-                                <div className="p-4 rounded-full bg-gray-800/50">
-                                    <FileText className="w-10 h-10 text-gray-600" />
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-sm font-medium text-gray-400">Your LaTeX resume will appear here</p>
-                                    <p className="text-xs text-gray-600 mt-1">Fill in the job description and resume details, then click Generate</p>
-                                </div>
+                            <div className="flex flex-col items-center justify-center h-full text-gray-600 p-4 text-center">
+                                <FileText className="w-12 h-12 mb-4 opacity-50" />
+                                <p className="text-sm font-medium">Your raw LaTeX code will appear here</p>
                             </div>
                         )}
                     </div>
-
-                    {/* Overleaf Tip / Edit info */}
+                    {/* Tip Bar */}
                     {latexOutput && (
-                        <div className={`px-5 py-3 border-t flex items-center gap-2 text-xs ${isEditing
-                            ? "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-100 text-amber-700"
-                            : "bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-100 text-emerald-700"
-                            }`}>
-                            {isEditing ? (
-                                <>
-                                    <Pencil className="w-4 h-4 flex-shrink-0" />
-                                    <span>
-                                        <strong>Editing:</strong> Make your changes directly. Click <strong>Preview</strong> to switch back, or <strong>Download</strong> to save your edited version.
-                                    </span>
-                                </>
-                            ) : (
-                                <>
-                                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                                    <span>
-                                        <strong>Tip:</strong> Click <strong>Edit</strong> to modify, then Copy/Download → go to{" "}
-                                        <a
-                                            href="https://www.overleaf.com/project"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="underline hover:text-emerald-900 font-medium"
-                                        >
-                                            Overleaf
-                                        </a>
-                                        {" "}→ New Project → Blank → paste → Compile
-                                    </span>
-                                </>
-                            )}
+                        <div className="px-5 py-3 border-t bg-gradient-to-r from-amber-50 to-orange-50 border-amber-100 flex items-center gap-2 text-xs text-amber-700">
+                            <Pencil className="w-4 h-4 flex-shrink-0" />
+                            <span><strong>Editing:</strong> Modify code directly, then click <strong>Compile</strong> to refresh the PDF.</span>
                         </div>
                     )}
+                </div>
+
+                {/* RIGHT: Live PDF Preview */}
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-[800px] lg:col-span-1">
+                    <div className="px-5 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <CheckCircle2 className="w-5 h-5 text-red-500" />
+                            <h2 className="font-semibold text-gray-800">Live Preview</h2>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider hidden sm:block">Powered by latexonline.cc</span>
+                    </div>
+
+                    <div className="flex-1 relative bg-gray-100 overflow-hidden flex flex-col">
+                        {compiling ? (
+                            <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500">
+                                <div className="w-10 h-10 rounded-full border-4 border-gray-300 border-t-violet-500 animate-spin" />
+                                <p className="text-sm font-medium">Compiling LaTeX...</p>
+                            </div>
+                        ) : pdfUrl ? (
+                            <iframe
+                                src={pdfUrl}
+                                className="w-full h-full border-none bg-white"
+                                title="Live PDF Preview"
+                            />
+                        ) : latexOutput ? (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4 text-center">
+                                <Sparkles className="w-12 h-12 mb-4 opacity-30" />
+                                <p className="text-sm font-medium">Click <strong>Compile</strong> to render the PDF</p>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4 text-center">
+                                <Eye className="w-12 h-12 mb-4 opacity-30" />
+                                <p className="text-sm font-medium">Live PDF document will render here</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

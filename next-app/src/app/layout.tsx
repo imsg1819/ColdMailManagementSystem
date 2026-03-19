@@ -22,7 +22,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-gray-50 flex text-gray-900`}>
+      <body className={`${inter.className} bg-gray-50 flex text-gray-900`} suppressHydrationWarning>
         <Providers>
           {session && <Sidebar />}
           <main className={`flex-1 transition-all ${session ? "ml-64" : ""}`}>

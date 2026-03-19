@@ -55,9 +55,9 @@ export async function GET(req: NextRequest) {
 
         const eligibleRecipients = await prisma.recipient.findMany({
             where: {
-                status: "Sent",
+                status: "Sent",  // Skip "Replied" contacts — they already responded
                 lastSentDate: {
-                    lte: threeDaysAgo // less than or equal to 3 days ago.
+                    lte: threeDaysAgo
                 }
             },
             take: 20

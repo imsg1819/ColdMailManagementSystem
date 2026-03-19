@@ -52,6 +52,10 @@ export const authOptions: AuthOptions = {
                     throw new Error("Please verify your email first. Check your inbox for the OTP.");
                 }
 
+                if (user.isBlocked) {
+                    throw new Error("Account suspended by administrator.");
+                }
+
                 const isValid = await bcrypt.compare(credentials.password, user.password);
                 if (!isValid) {
                     throw new Error("Incorrect password.");

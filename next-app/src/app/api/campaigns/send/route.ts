@@ -5,19 +5,17 @@ import { authOptions } from "../../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { runPythonScript } from "@/lib/pythonRunner";
 
-// Generate a personalized cold email
 function generateEmailBody(recipientName: string | null, company: string | null, settings: any) {
     const role = settings.targetRole || "Software Engineer";
     const yoe = settings.yearsOfExperience || "several years";
     const skills = settings.skills ? `My core skills include ${settings.skills}.` : "";
     const senderName = settings.senderName || "A Job Seeker";
 
-    // Build links section — only show links that are provided
     const links: string[] = [];
-    if (settings.linkedinUrl) links.push(`<a href="${settings.linkedinUrl}" style="color:#2563eb;">LinkedIn</a>`);
-    if (settings.githubUrl) links.push(`<a href="${settings.githubUrl}" style="color:#2563eb;">GitHub</a>`);
-    if (settings.portfolioUrl) links.push(`<a href="${settings.portfolioUrl}" style="color:#2563eb;">Portfolio</a>`);
-    const linksSection = links.length > 0 ? `<p>You can learn more about my work here: ${links.join(" | ")}</p>` : "";
+    if (settings.linkedinUrl) links.push(`<a href="${settings.linkedinUrl}" style="color:#2563eb; text-decoration:none; font-weight:bold;">LinkedIn</a>`);
+    if (settings.githubUrl) links.push(`<a href="${settings.githubUrl}" style="color:#2563eb; text-decoration:none; font-weight:bold;">GitHub</a>`);
+    if (settings.portfolioUrl) links.push(`<a href="${settings.portfolioUrl}" style="color:#2563eb; text-decoration:none; font-weight:bold;">Portfolio</a>`);
+    const linksSection = links.length > 0 ? `<p style="margin: 20px 0; font-size: 15px;">You can learn more about my work here:<br><br>${links.join(" &nbsp;|&nbsp; ")}</p>` : "";
 
     const greeting = recipientName ? `Hi ${recipientName},` : "Dear Hiring Manager,";
     const companyMention = company
@@ -26,33 +24,33 @@ function generateEmailBody(recipientName: string | null, company: string | null,
     const companyRef = company ? company : "your team";
 
     return `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-      ${greeting}
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; line-height: 1.8; color: #333; max-width: 600px; margin: 0 auto; text-align: center; padding: 40px 20px; background-color: #ffffff; border: 1px solid #eaeaea; border-radius: 8px;">
+      <h2 style="font-size: 20px; margin-bottom: 24px; color: #111;">${greeting}</h2>
       
-      <p>I hope this email finds you well.</p>
+      <p style="font-size: 16px; margin-bottom: 16px;">I hope this email finds you well.</p>
       
-      <p>${companyMention} I am highly interested in joining as a <strong>${role}</strong>.</p>
+      <p style="font-size: 16px; margin-bottom: 16px;">${companyMention} I am highly interested in joining as a <strong>${role}</strong>.</p>
       
-      <p>With <strong>${yoe}</strong> of experience, I bring a strong background in software development. ${skills}</p>
+      <p style="font-size: 16px; margin-bottom: 16px;">With <strong>${yoe}</strong> of experience, I bring a strong background in software development. ${skills}</p>
       
       ${linksSection}
       
-      <p>I have attached my resume for your convenience. I would love the chance to discuss how my background and skills would be an asset to ${companyRef}. Are you available for a brief chat sometime next week?</p>
+      <p style="font-size: 16px; margin-bottom: 24px;">I have attached my resume for your convenience. I would love the chance to discuss how my background and skills would be an asset to ${companyRef}. Are you available for a brief chat sometime next week?</p>
       
-      <p>Looking forward to hearing from you.</p>
+      <hr style="border: none; border-top: 1px solid #eaeaea; margin: 24px auto; width: 50%;">
       
-      <p>Best regards,<br>
-      ${senderName}</p>
+      <p style="font-size: 16px; margin-bottom: 8px;">Looking forward to hearing from you.</p>
+      
+      <p style="font-size: 16px; font-weight: bold; margin-bottom: 0;">Best regards,<br>${senderName}</p>
     </div>
   `;
 }
 
 function generateSubject(company: string | null, settings: any) {
     const role = settings.targetRole || "Software Engineer";
-    if (company) {
-        return `Application for ${role} Position at ${company}`;
-    }
-    return `Application for ${role} Position — Experienced Candidate`;
+    const yoe = settings.yearsOfExperience || "X yrs";
+    const domain = role;
+    return `Quick intro – ${role} with ${yoe} in ${domain} | Open to Opportunities`;
 }
 
 export async function POST(req: NextRequest) {
@@ -101,6 +99,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: true, message: "No pending emails to send.", sentCount: 0 });
         }
 
+        // DOUBLE-VERIFICATION LOCK: Immediately mark as Processing to prevent double-clicks sending duplicates
+        await prisma.recipient.updateMany({
+            where: { id: { in: pendingRecipients.map(r => r.id) } },
+            data: { status: "Processing" },
+        });
+
         let successCount = 0;
         const errors: any[] = [];
 
@@ -130,15 +134,26 @@ export async function POST(req: NextRequest) {
                         where: { id: recipient.id },
                         data: {
                             status: "Sent",
-                            lastSentDate: new Date()
+                            lastSentDate: new Date(),
+                            sentMessageId: pyResult.messageId || null,
                         }
                     });
                     successCount++;
                 } else {
+                    // Revert to pending so they can try again
+                    await prisma.recipient.update({
+                        where: { id: recipient.id },
+                        data: { status: "Pending" }
+                    });
                     errors.push({ email: recipient.targetEmail, error: pyResult.error });
                 }
 
             } catch (e: any) {
+                // Revert to pending on critical error
+                await prisma.recipient.update({
+                    where: { id: recipient.id },
+                    data: { status: "Pending" }
+                });
                 errors.push({ email: recipient.targetEmail, error: e.message });
                 console.error(`Failed to send to ${recipient.targetEmail}`, e);
             }

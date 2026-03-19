@@ -8,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+from email.utils import make_msgid
 
 
 def build_message(sender_email, email_params, resume_path):
@@ -16,6 +17,8 @@ def build_message(sender_email, email_params, resume_path):
     msg["From"] = sender_email
     msg["To"] = email_params["to"]
     msg["Subject"] = email_params["subject"]
+    # Generate a unique Message-ID for reply tracking
+    msg["Message-ID"] = make_msgid(domain=sender_email.split("@")[1])
     msg.attach(MIMEText(email_params["body"], "html"))
 
     if resume_path and os.path.isfile(resume_path):
@@ -105,7 +108,8 @@ def send_email():
         success, error = try_smtp_send(sender_email, app_password, msg)
         
         if success:
-            print(json.dumps({"success": True, "message": f"Email sent to {email_params['to']}"}))
+            # Return the Message-ID so the caller can save it for reply tracking
+            print(json.dumps({"success": True, "message": f"Email sent to {email_params['to']}", "messageId": msg["Message-ID"]}))
         else:
             # If SMTP fails (likely firewall), offer helpful error
             if "forcibly closed" in str(error) or "timed out" in str(error) or "10054" in str(error):
