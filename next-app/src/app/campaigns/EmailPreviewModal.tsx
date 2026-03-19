@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Eye, X, Paperclip, Mail, User, Building2, AlertTriangle } from "lucide-react";
+import { checkSpamScore, SpamCheckResult } from "@/lib/checkSpamScore";
+import SpamScoreIndicator from "./SpamScoreIndicator";
 
 interface PreviewData {
     from: string;
@@ -21,6 +23,7 @@ export default function EmailPreviewModal({ recipientId }: { recipientId?: strin
     const [loading, setLoading] = useState(false);
     const [preview, setPreview] = useState<PreviewData | null>(null);
     const [error, setError] = useState("");
+    const [spamResult, setSpamResult] = useState<SpamCheckResult | null>(null);
 
     const handleOpen = async () => {
         setOpen(true);
@@ -36,6 +39,8 @@ export default function EmailPreviewModal({ recipientId }: { recipientId?: strin
 
             if (!res.ok) throw new Error(data.error);
             setPreview(data.preview);
+            // Run spam check on loaded preview
+            setSpamResult(checkSpamScore(data.preview.subject, data.preview.body));
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -118,6 +123,11 @@ export default function EmailPreviewModal({ recipientId }: { recipientId?: strin
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Spam Score — shown above the body for visibility */}
+                                    {spamResult && (
+                                        <SpamScoreIndicator result={spamResult} />
+                                    )}
 
                                     {/* Email Body */}
                                     <div className="border border-gray-200 rounded-xl overflow-hidden">

@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SendConfirmationModal from "./SendConfirmationModal";
+import { checkSpamScore, SpamCheckResult } from "@/lib/checkSpamScore";
+import SpamScoreIndicator from "./SpamScoreIndicator";
 
 // Dynamically import ReactQuill to avoid SSR issues
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false });
@@ -126,6 +128,22 @@ export default function PreSendFlow({ recipientIds, onClose }: Props) {
         [checkedPreviews]
     );
 
+    // Spam score — computed live across all checked recipients
+    const worstSpamResult: SpamCheckResult = useMemo(() => {
+        if (checkedPreviews.length === 0) return { score: 100, flaggedWords: [] };
+        let worstScore = 100;
+        let allFlagged: string[] = [];
+        for (const p of checkedPreviews) {
+            const result = checkSpamScore(getSubject(p), getBody(p));
+            if (result.score < worstScore) worstScore = result.score;
+            allFlagged = [...allFlagged, ...result.flaggedWords];
+        }
+        // Deduplicate flagged words
+        return { score: worstScore, flaggedWords: [...new Set(allFlagged)] };
+    }, [checkedPreviews, getSubject, getBody]);
+
+    const spamBlocked = worstSpamResult.score < 60;
+
     // Send
     const handleSend = async () => {
         setSending(true);
@@ -222,7 +240,7 @@ export default function PreSendFlow({ recipientIds, onClose }: Props) {
 
                         {!loading && !error && !result && previews.map((p, idx) => (
                             <div key={p.recipientId} className={`border-2 rounded-2xl overflow-hidden transition-all ${!checked.has(p.recipientId) ? "opacity-50 border-gray-100" :
-                                    expanded.has(p.recipientId) ? "border-blue-200 shadow-sm shadow-blue-100" : "border-gray-100"
+                                expanded.has(p.recipientId) ? "border-blue-200 shadow-sm shadow-blue-100" : "border-gray-100"
                                 }`}>
                                 {/* Recipient header row */}
                                 <div
@@ -339,6 +357,13 @@ export default function PreSendFlow({ recipientIds, onClose }: Props) {
                         ))}
                     </div>
 
+                    {/* Spam Score Indicator */}
+                    {!loading && !error && !result && checkedPreviews.length > 0 && (
+                        <div className="px-5 pb-2">
+                            <SpamScoreIndicator result={worstSpamResult} />
+                        </div>
+                    )}
+
                     {/* Footer */}
                     {!loading && !error && !result && (
                         <div className="border-t border-gray-100 p-5 shrink-0 flex items-center justify-between bg-gray-50/50">
@@ -369,8 +394,9 @@ export default function PreSendFlow({ recipientIds, onClose }: Props) {
                                         </button>
                                         <button
                                             onClick={() => setShowConfirmation(true)}
-                                            disabled={checkedPreviews.length === 0}
-                                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-sm shadow-blue-500/30 transition-all disabled:opacity-50"
+                                            disabled={checkedPreviews.length === 0 || spamBlocked}
+                                            title={spamBlocked ? "Fix spam words first" : ""}
+                                            className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-sm shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <Send className="w-4 h-4" />
                                             Looks Good — Send
@@ -379,8 +405,9 @@ export default function PreSendFlow({ recipientIds, onClose }: Props) {
                                 ) : (
                                     <button
                                         onClick={() => setShowConfirmation(true)}
-                                        disabled={checkedPreviews.length === 0}
-                                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-sm shadow-blue-500/30 transition-all disabled:opacity-50"
+                                        disabled={checkedPreviews.length === 0 || spamBlocked}
+                                        title={spamBlocked ? "Fix spam words first" : ""}
+                                        className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-xl shadow-sm shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Send className="w-4 h-4" />
                                         Send to {checkedPreviews.length} recipient{checkedPreviews.length !== 1 ? "s" : ""}
